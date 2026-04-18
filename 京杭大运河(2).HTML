@@ -1,0 +1,1639 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>京杭大运河 · 古建筑信息可视化</title>
+  <style>
+    :root{
+      --bg0:#f4efe3;
+      --bg1:#eadfc8;
+      --bg2:#d9c7a8;
+      --panel:#fff8ee;
+      --panel2:#f7eedf;
+      --ink:#2a2015;
+      --muted:#746555;
+      --gold:#b58a3e;
+      --gold2:#d1b06a;
+      --blue:#4e8ecf;
+      --green:#4ea97a;
+      --shadow:0 18px 42px rgba(54,42,20,.16);
+      --line:rgba(181,138,62,.18);
+    }
+
+    *{box-sizing:border-box}
+    html,body{
+      margin:0;
+      width:100%;
+      height:100%;
+      overflow:hidden;
+      font-family:"Songti SC","STSong","SimSun","Noto Serif CJK SC","Microsoft YaHei",serif;
+      color:var(--ink);
+      background:
+        radial-gradient(circle at 18% 12%, rgba(181,138,62,.18), transparent 22%),
+        radial-gradient(circle at 82% 8%, rgba(78,142,207,.14), transparent 20%),
+        radial-gradient(circle at 55% 102%, rgba(78,169,122,.08), transparent 28%),
+        linear-gradient(160deg, var(--bg0), var(--bg1) 42%, var(--bg2));
+    }
+
+    body::before{
+      content:"";
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      opacity:.45;
+      filter:blur(10px);
+      background:
+        radial-gradient(circle at 10% 20%, rgba(255,255,255,.24), transparent 18%),
+        radial-gradient(circle at 30% 65%, rgba(255,255,255,.12), transparent 20%),
+        radial-gradient(circle at 75% 30%, rgba(255,255,255,.12), transparent 22%),
+        radial-gradient(circle at 86% 75%, rgba(255,255,255,.10), transparent 20%);
+    }
+
+    .app{
+      position:relative;
+      width:100vw;
+      height:100vh;
+      padding:14px;
+      display:grid;
+      grid-template-rows:auto 1fr;
+      gap:14px;
+    }
+
+    .topbar{
+      display:flex;
+      align-items:stretch;
+      gap:14px;
+      min-height:92px;
+    }
+
+    .brand, .stats, .panel, .hero-card, .detail-card, .text-card, .list-card, .quote-card, .modal, .info-chip, .addon-card{
+      background:linear-gradient(180deg, rgba(255,250,240,.92), rgba(244,235,218,.95));
+      border:1px solid var(--line);
+      box-shadow:var(--shadow);
+      backdrop-filter:blur(10px);
+    }
+
+    .brand{
+      min-width:360px;
+      border-radius:20px;
+      display:flex;
+      align-items:center;
+      gap:14px;
+      padding:14px 18px;
+    }
+
+    .logo{
+      width:50px;
+      height:50px;
+      border-radius:18px;
+      display:grid;
+      place-items:center;
+      color:#fff;
+      font-size:24px;
+      background:linear-gradient(135deg, #8b6a2c, #d1b06a);
+      box-shadow:0 12px 24px rgba(181,138,62,.24);
+      flex:none;
+    }
+
+    .title-wrap h1{
+      margin:0;
+      font-size:22px;
+      letter-spacing:1px;
+    }
+    .title-wrap p{
+      margin:5px 0 0;
+      font-size:12px;
+      color:var(--muted);
+      line-height:1.6;
+    }
+
+    .stats{
+      flex:1;
+      border-radius:20px;
+      display:grid;
+      grid-template-columns:repeat(4,minmax(120px,1fr));
+      gap:10px;
+      padding:12px;
+      min-width:0;
+    }
+
+    .stat{
+      border-radius:16px;
+      padding:12px 14px;
+      background:linear-gradient(180deg, rgba(255,255,255,.78), rgba(245,236,220,.90));
+      border:1px solid rgba(181,138,62,.12);
+      min-width:0;
+    }
+    .stat .k{font-size:12px;color:var(--muted);margin-bottom:6px}
+    .stat .v{font-size:18px;font-weight:700;color:#2d2011;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+    .main{
+      min-height:0;
+      display:grid;
+      grid-template-columns:1.25fr .95fr;
+      gap:14px;
+    }
+
+    .left, .right{
+      min-height:0;
+      border-radius:26px;
+      border:1px solid rgba(150,125,80,.16);
+      overflow:hidden;
+      box-shadow:var(--shadow);
+      background:linear-gradient(180deg, rgba(255,250,240,.82), rgba(243,232,212,.92));
+    }
+
+    .left{
+      display:grid;
+      grid-template-rows:1fr auto;
+    }
+
+    .map-area{
+      position:relative;
+      overflow:hidden;
+      background:
+        radial-gradient(circle at 50% 20%, rgba(181,138,62,.10), transparent 22%),
+        radial-gradient(circle at 36% 78%, rgba(78,169,122,.10), transparent 24%),
+        linear-gradient(180deg, rgba(252,246,235,.70), rgba(235,222,197,.92));
+    }
+
+    .paper-grid{
+      position:absolute;
+      inset:0;
+      background-image:
+        linear-gradient(rgba(90,66,36,.045) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(90,66,36,.045) 1px, transparent 1px);
+      background-size:60px 60px;
+      opacity:.58;
+      mask-image:radial-gradient(circle at center, black 45%, transparent 100%);
+      pointer-events:none;
+      z-index:1;
+    }
+
+    .legend, .speed-box{
+      position:absolute;
+      z-index:7;
+      background:rgba(252,246,235,.90);
+      border:1px solid rgba(181,138,62,.16);
+      box-shadow:0 10px 30px rgba(95,74,30,.10);
+      backdrop-filter:blur(10px);
+    }
+
+    .legend{
+      right:18px;
+      top:18px;
+      min-width:210px;
+      padding:14px;
+      border-radius:18px;
+      display:grid;
+      gap:10px;
+    }
+    .legend-row{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      font-size:12px;
+      color:#4b3b2a;
+    }
+    .legend-dot{
+      width:12px;
+      height:12px;
+      border-radius:50%;
+      flex:none;
+    }
+
+    .speed-box{
+      right:18px;
+      bottom:18px;
+      padding:10px 14px;
+      border-radius:999px;
+      display:flex;
+      align-items:center;
+      gap:10px;
+      color:#503f2c;
+      font-size:12px;
+    }
+    .speed-box input{
+      width:160px;
+      accent-color:var(--gold);
+    }
+
+    .map-viewport{
+      position:absolute;
+      inset:0;
+      overflow:auto;
+      z-index:2;
+      scrollbar-width:thin;
+      scrollbar-color:rgba(125,96,45,.28) transparent;
+    }
+    .map-viewport::-webkit-scrollbar{
+      width:10px;
+      height:10px;
+    }
+    .map-viewport::-webkit-scrollbar-thumb{
+      background:rgba(125,96,45,.18);
+      border-radius:10px;
+    }
+
+    .map-canvas{
+      position:relative;
+      width:3000px;
+      height:1800px;
+    }
+
+    svg{display:block}
+
+    .station{
+      cursor:pointer;
+      transform-origin:center;
+      transition:filter .2s ease, opacity .2s ease;
+    }
+    .station:hover{filter:drop-shadow(0 0 10px rgba(181,138,62,.38))}
+    .station.active circle.outer{
+      fill:rgba(181,138,62,.28);
+      stroke:#b58a3e;
+      stroke-width:3;
+    }
+
+    .station-label{
+      font-size:18px;
+      fill:#3c2d1d;
+      paint-order:stroke;
+      stroke:rgba(252,246,235,.92);
+      stroke-width:5px;
+      stroke-linejoin:round;
+      font-weight:700;
+    }
+    .station-tag{
+      font-size:12px;
+      fill:#6d5a45;
+      paint-order:stroke;
+      stroke:rgba(252,246,235,.88);
+      stroke-width:4px;
+      stroke-linejoin:round;
+    }
+
+    .pulse{
+      animation:pulse 2.2s infinite;
+      transform-origin:center;
+    }
+    @keyframes pulse{
+      0%{transform:scale(.92);opacity:.45}
+      70%{transform:scale(1.35);opacity:0}
+      100%{transform:scale(1.35);opacity:0}
+    }
+
+    .boat-overlay{
+      position:absolute;
+      left:0;
+      top:0;
+      width:260px;
+      height:220px;
+      z-index:14;
+      transform-origin:130px 110px;
+      pointer-events:none;
+      filter:drop-shadow(0 14px 18px rgba(70,50,20,.28));
+      will-change:transform;
+    }
+    .boat-float{
+      animation:float 2.6s ease-in-out infinite;
+      transform-origin:center;
+    }
+    @keyframes float{
+      0%,100%{transform:translateY(0px)}
+      50%{transform:translateY(-6px)}
+    }
+
+    .bottom-bar{
+      padding:14px 18px;
+      background:linear-gradient(180deg, rgba(247,240,226,.88), rgba(238,227,204,.92));
+      border-top:1px solid rgba(181,138,62,.16);
+      display:grid;
+      grid-template-columns:1fr auto;
+      align-items:center;
+      gap:12px;
+      color:#5d4b36;
+      font-size:13px;
+    }
+
+    .buttons{
+      display:grid;
+      grid-template-columns:repeat(4, minmax(0, 1fr));
+      gap:10px;
+      width:min(780px, 100%);
+      align-items:stretch;
+    }
+
+    .btn{
+      appearance:none;
+      border:0;
+      color:#fff;
+      background:linear-gradient(135deg, #b58a3e, #d1b06a);
+      border:1px solid rgba(181,138,62,.22);
+      border-radius:999px;
+      padding:10px 12px;
+      font-size:12px;
+      cursor:pointer;
+      transition:transform .18s ease, box-shadow .18s ease;
+      white-space:nowrap;
+      min-width:0;
+    }
+    .btn:hover{
+      transform:translateY(-1px);
+      box-shadow:0 10px 24px rgba(0,0,0,.16);
+    }
+    .btn.secondary{
+      background:rgba(255,255,255,.50);
+      color:#40311e;
+    }
+    .btn.danger{
+      background:rgba(160,69,58,.92);
+    }
+
+    .right{
+      display:grid;
+      grid-template-rows:auto auto 1fr;
+      min-width:0;
+      overflow:hidden;
+    }
+
+    .panel-head{
+      position:sticky;
+      top:0;
+      z-index:10;
+      padding:16px 16px 12px;
+      background:linear-gradient(180deg, rgba(244,239,227,.98), rgba(244,239,227,.88), rgba(244,239,227,0));
+      backdrop-filter:blur(8px);
+      border-bottom:1px solid rgba(181,138,62,.08);
+    }
+
+    .panel-head-row{
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      align-items:flex-start;
+    }
+
+    .panel-head h2{
+      margin:0;
+      font-size:24px;
+      letter-spacing:1px;
+      color:#342516;
+    }
+    .panel-head .sub{
+      margin-top:8px;
+      color:#6c5c47;
+      font-size:13px;
+      line-height:1.8;
+      max-width:560px;
+    }
+
+    .badge{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 12px;
+      border-radius:999px;
+      background:rgba(181,138,62,.10);
+      border:1px solid rgba(181,138,62,.20);
+      color:#8d6627;
+      font-size:12px;
+      white-space:nowrap;
+      flex:none;
+    }
+
+    .tabs{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      margin-top:12px;
+    }
+
+    .tab{
+      border:1px solid rgba(181,138,62,.18);
+      background:rgba(255,255,255,.58);
+      color:#5a452b;
+      border-radius:999px;
+      padding:8px 12px;
+      font-size:12px;
+      cursor:pointer;
+      transition:transform .16s ease, background .16s ease;
+    }
+    .tab:hover{
+      transform:translateY(-1px);
+      background:rgba(209,176,106,.18);
+    }
+    .tab.active{
+      background:rgba(209,176,106,.25);
+      border-color:rgba(181,138,62,.34);
+      color:#4d381c;
+      font-weight:700;
+    }
+
+    .panel-body{
+      min-height:0;
+      overflow:auto;
+      padding:0 14px 16px;
+      scrollbar-width:thin;
+      scrollbar-color:rgba(125,96,45,.25) transparent;
+    }
+    .panel-body::-webkit-scrollbar{width:10px}
+    .panel-body::-webkit-scrollbar-thumb{
+      background:rgba(125,96,45,.18);
+      border-radius:10px;
+    }
+
+    .section{
+      display:none;
+      margin-top:14px;
+    }
+    .section.active{
+      display:block;
+    }
+
+    .hero{
+      display:grid;
+      grid-template-columns:1.08fr .92fr;
+      gap:12px;
+      min-height:0;
+    }
+
+    .hero-card, .detail-card, .text-card, .list-card, .quote-card{
+      border-radius:22px;
+      overflow:hidden;
+      border:1px solid rgba(181,138,62,.14);
+    }
+
+    .hero-img{
+      position:relative;
+      min-height:220px;
+      background-size:cover;
+      background-position:center;
+      isolation:isolate;
+    }
+    .hero-img::after{
+      content:"";
+      position:absolute;
+      inset:0;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.10), rgba(61,45,22,.58)),
+        radial-gradient(circle at 75% 20%, rgba(255,255,255,.18), transparent 18%);
+      z-index:0;
+    }
+    .hero-caption{
+      position:absolute;
+      left:16px;
+      right:16px;
+      bottom:14px;
+      z-index:1;
+      display:grid;
+      gap:4px;
+    }
+    .hero-caption .place{
+      font-size:17px;
+      font-weight:700;
+      color:#fff;
+    }
+    .hero-caption .type{
+      font-size:12px;
+      color:#f7f3eb;
+      opacity:.95;
+      line-height:1.5;
+    }
+
+    .detail-card, .text-card, .list-card, .quote-card{
+      padding:14px;
+    }
+
+    .detail-head{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      align-items:flex-start;
+      margin-bottom:10px;
+    }
+    .detail-head h3, .text-card h3, .list-head h3, .quote-card h3{
+      margin:0;
+      font-size:17px;
+      color:#352617;
+    }
+
+    .detail-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .info-chip{
+      border-radius:16px;
+      padding:12px;
+      background:rgba(255,255,255,.68);
+      border:1px solid rgba(181,138,62,.10);
+      min-height:100px;
+    }
+    .info-chip .k{
+      color:#7a6a58;
+      font-size:12px;
+      margin-bottom:6px;
+    }
+    .info-chip .v{
+      color:#2f2419;
+      font-size:14px;
+      line-height:1.8;
+    }
+
+    .text-grid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+      margin-top:10px;
+    }
+
+    .paragraph{
+      border-radius:16px;
+      padding:12px 14px;
+      background:rgba(255,255,255,.66);
+      border:1px solid rgba(181,138,62,.10);
+      color:#3e3124;
+      line-height:1.95;
+      font-size:14px;
+    }
+
+    .quote{
+      border-radius:18px;
+      padding:14px 16px;
+      background:linear-gradient(180deg, rgba(255,255,255,.72), rgba(246,238,225,.92));
+      border:1px solid rgba(181,138,62,.12);
+      color:#3b2e20;
+      line-height:1.9;
+      font-size:14px;
+    }
+    .quote .small{
+      display:block;
+      margin-top:6px;
+      color:#7a6a58;
+      font-size:12px;
+    }
+
+    .list-head{
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      align-items:center;
+      margin-bottom:12px;
+    }
+    .list-head span{
+      color:#7a6a58;
+      font-size:12px;
+    }
+
+    .controls{
+      display:grid;
+      grid-template-columns:1fr auto auto;
+      gap:10px;
+      margin-bottom:12px;
+    }
+
+    .search,.filter{
+      width:100%;
+      padding:11px 14px;
+      border-radius:999px;
+      background:rgba(255,255,255,.60);
+      border:1px solid rgba(181,138,62,.12);
+      color:#2f2419;
+      outline:none;
+    }
+    .search::placeholder{color:#907d68}
+    .filter{min-width:150px}
+
+    .cards{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:12px;
+      min-height:0;
+    }
+
+    .stop-card{
+      padding:12px;
+      border-radius:18px;
+      background:linear-gradient(180deg, rgba(255,255,255,.68), rgba(248,241,229,.90));
+      border:1px solid rgba(181,138,62,.10);
+      min-height:180px;
+      transition:transform .2s ease, border-color .2s ease, box-shadow .2s ease, background .2s ease;
+      cursor:pointer;
+      display:grid;
+      gap:8px;
+    }
+    .stop-card:hover{
+      transform:translateY(-2px);
+      border-color:rgba(181,138,62,.28);
+      box-shadow:0 12px 24px rgba(63,46,18,.10);
+    }
+    .stop-card.active{
+      background:linear-gradient(180deg, rgba(209,176,106,.18), rgba(255,255,255,.88));
+      border-color:rgba(181,138,62,.34);
+    }
+
+    .thumb{
+      height:68px;
+      border-radius:14px;
+      position:relative;
+      overflow:hidden;
+      background:
+        linear-gradient(135deg, rgba(181,138,62,.28), rgba(78,142,207,.16)),
+        radial-gradient(circle at 70% 25%, rgba(255,255,255,.22), transparent 20%),
+        linear-gradient(180deg, rgba(248,241,229,.9), rgba(220,206,177,.95));
+    }
+    .thumb::after{
+      content:"";
+      position:absolute;
+      inset:0;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.02), rgba(0,0,0,.18)),
+        radial-gradient(circle at 80% 20%, rgba(255,255,255,.12), transparent 20%);
+    }
+
+    .name{
+      font-size:15px;
+      font-weight:700;
+      color:#302518;
+    }
+    .meta{
+      font-size:12px;
+      color:#6e5e4b;
+      line-height:1.6;
+    }
+
+    .card-actions{
+      display:flex;
+      gap:8px;
+      margin-top:auto;
+    }
+    .mini-btn{
+      border:1px solid rgba(181,138,62,.16);
+      background:rgba(255,255,255,.56);
+      color:#614826;
+      border-radius:999px;
+      padding:7px 10px;
+      font-size:12px;
+      cursor:pointer;
+    }
+    .mini-btn:hover{background:rgba(209,176,106,.18)}
+
+    .timeline{
+      display:grid;
+      gap:10px;
+      margin-top:14px;
+    }
+    .timeline-item{
+      display:flex;
+      gap:10px;
+      align-items:flex-start;
+      padding:10px 12px;
+      border-radius:16px;
+      background:rgba(255,255,255,.48);
+      border:1px solid rgba(181,138,62,.10);
+    }
+    .dot{
+      width:10px;
+      height:10px;
+      border-radius:50%;
+      margin-top:6px;
+      background:var(--gold);
+      box-shadow:0 0 12px rgba(181,138,62,.38);
+      flex:none;
+    }
+    .timeline-item strong{
+      display:block;
+      margin-bottom:4px;
+      color:#2f2419;
+    }
+    .timeline-item span{
+      color:#776754;
+      font-size:12px;
+      line-height:1.6;
+    }
+
+    .section-addon{
+      margin-top:12px;
+      display:grid;
+      grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));
+      gap:12px;
+    }
+
+    .addon-card{
+      border-radius:18px;
+      padding:14px;
+      background:rgba(255,255,255,.62);
+      border:1px solid rgba(181,138,62,.12);
+      min-height:132px;
+    }
+
+    .addon-card h4{
+      margin:0 0 8px;
+      font-size:15px;
+      color:#352617;
+    }
+
+    .addon-card p{
+      margin:0;
+      color:#3e3124;
+      line-height:1.85;
+      font-size:13px;
+    }
+
+    .addon-list{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin-top:2px;
+    }
+
+    .addon-pill{
+      display:inline-flex;
+      align-items:center;
+      padding:6px 10px;
+      border-radius:999px;
+      background:rgba(209,176,106,.18);
+      border:1px solid rgba(181,138,62,.14);
+      color:#5c4628;
+      font-size:12px;
+      white-space:nowrap;
+    }
+
+    .footer-note{
+      margin-top:10px;
+      color:#7a6a58;
+      font-size:12px;
+      line-height:1.7;
+    }
+
+    .modal-mask{
+      position:fixed;
+      inset:0;
+      background:rgba(18,14,9,.44);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      z-index:100;
+      padding:20px;
+    }
+    .modal{
+      width:min(1060px, 96vw);
+      max-height:86vh;
+      overflow:auto;
+      border-radius:26px;
+      padding:18px;
+      background:linear-gradient(180deg, rgba(255,250,240,.98), rgba(242,232,212,.98));
+      border:1px solid rgba(181,138,62,.18);
+      box-shadow:0 30px 80px rgba(0,0,0,.34);
+    }
+    .modal-head{
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      align-items:flex-start;
+      margin-bottom:14px;
+    }
+    .modal-head h3{
+      margin:0;
+      font-size:22px;
+      color:#2e2317;
+    }
+    .modal-close{
+      border:0;
+      cursor:pointer;
+      color:#fff;
+      background:linear-gradient(135deg, #9f7631, #d1b06a);
+      width:40px;
+      height:40px;
+      border-radius:50%;
+      font-size:18px;
+    }
+    .modal-body{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:14px;
+    }
+    .modal-img{
+      min-height:360px;
+      border-radius:22px;
+      overflow:hidden;
+      background-size:cover;
+      background-position:center;
+      border:1px solid rgba(181,138,62,.10);
+    }
+    .modal-text{
+      background:rgba(255,255,255,.54);
+      border:1px solid rgba(181,138,62,.10);
+      border-radius:22px;
+      padding:16px;
+      overflow:auto;
+      max-height:64vh;
+    }
+    .modal-text p{
+      margin:0 0 12px;
+      line-height:1.9;
+      color:#3f3225;
+      font-size:14px;
+    }
+
+    .boat-docked{
+      animation:none !important;
+      filter:drop-shadow(0 10px 16px rgba(70,50,20,.22));
+    }
+
+    .data-grid-4{
+      display:grid;
+      grid-template-columns:repeat(4,1fr);
+      gap:8px;
+      margin:12px 0;
+    }
+    .stat-mini{
+      background:rgba(255,255,255,.55);
+      border-radius:14px;
+      padding:10px 6px;
+      text-align:center;
+      border:1px solid rgba(181,138,62,.08);
+    }
+    .stat-mini .label{
+      font-size:11px;
+      color:#7a6a58;
+    }
+    .stat-mini .value{
+      font-size:18px;
+      font-weight:700;
+      color:#3b2e20;
+    }
+
+    .long-text-block{
+      background:rgba(255,255,255,.45);
+      border-radius:16px;
+      padding:14px;
+      margin-top:12px;
+      border:1px solid rgba(181,138,62,.08);
+      line-height:1.9;
+      color:#3e3124;
+      font-size:14px;
+    }
+
+    @media (max-width: 1360px){
+      body{overflow:auto}
+      .app{height:auto;min-height:100vh}
+      .topbar{flex-direction:column;height:auto}
+      .brand{min-width:0}
+      .stats{grid-template-columns:repeat(2,minmax(120px,1fr))}
+      .main{grid-template-columns:1fr}
+      .left{min-height:680px}
+      .right{max-height:none;overflow:visible}
+      .modal-body{grid-template-columns:1fr}
+    }
+
+    @media (max-width: 780px){
+      .stats{grid-template-columns:1fr}
+      .hero, .detail-grid, .text-grid, .controls, .cards{grid-template-columns:1fr}
+      .bottom-bar{grid-template-columns:1fr}
+      .buttons{grid-template-columns:1fr 1fr;width:100%}
+      .legend{min-width:0;width:calc(100% - 36px)}
+      .speed-box{display:none}
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="topbar">
+      <div class="brand">
+        <div class="logo">⛵</div>
+        <div class="title-wrap">
+          <h1>京杭大运河 · 古建筑信息可视化</h1>
+          <p>从北京到杭州，沿运河缓缓行船，展示沿线古建筑、城市记忆与历史文脉。</p>
+        </div>
+      </div>
+      <div class="stats">
+        <div class="stat"><div class="k">路线长度</div><div class="v">≈ 1,794 km</div></div>
+        <div class="stat"><div class="k">精选节点</div><div class="v">10 个</div></div>
+        <div class="stat"><div class="k">核心建筑</div><div class="v">塔 / 桥 / 会馆</div></div>
+        <div class="stat"><div class="k">展示模式</div><div class="v">航行 + 交互</div></div>
+      </div>
+    </div>
+
+    <div class="main">
+      <section class="left">
+        <div class="map-area">
+          <div class="paper-grid"></div>
+          <div class="legend">
+            <div class="legend-row"><span class="legend-dot" style="background:#b58a3e"></span> 当前停靠站</div>
+            <div class="legend-row"><span class="legend-dot" style="background:#4e8ecf"></span> 运河航线</div>
+            <div class="legend-row"><span class="legend-dot" style="background:#4ea97a"></span> 古建筑节点</div>
+            <div class="legend-row"><span class="legend-dot" style="background:#ffffff;border:1px solid #b58a3e"></span> 船只位置</div>
+          </div>
+          <div class="speed-box">
+            <span>航行速度</span>
+            <input id="speedSlider" type="range" min="0.5" max="1.8" step="0.1" value="1.0" />
+            <span id="speedLabel">1.0x</span>
+          </div>
+          <div class="map-viewport" id="mapViewport">
+            <div class="map-canvas" id="mapCanvas">
+              <svg id="mapSvg" width="3000" height="1800" viewBox="0 0 3000 1800" preserveAspectRatio="none" aria-label="京杭大运河航线图">
+                <defs>
+                  <linearGradient id="riverGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#4e8ecf" stop-opacity="0.26"/><stop offset="50%" stop-color="#4e8ecf" stop-opacity="0.52"/><stop offset="100%" stop-color="#4ea97a" stop-opacity="0.24"/></linearGradient>
+                  <linearGradient id="flowGrad" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#4ea97a" stop-opacity="0.05"/><stop offset="50%" stop-color="#4e8ecf" stop-opacity="0.92"/><stop offset="100%" stop-color="#4ea97a" stop-opacity="0.05"/></linearGradient>
+                  <linearGradient id="paperGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#fbf6ea"/><stop offset="100%" stop-color="#eadfc8"/></linearGradient>
+                  <filter id="riverGlow" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="8" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+                </defs>
+                <rect width="3000" height="1800" fill="url(#paperGrad)"/>
+                <path d="M0,1330 C180,1288 360,1380 540,1330 C760,1274 940,1190 1170,1228 C1415,1266 1575,1420 1835,1375 C2060,1336 2225,1220 2600,1288 L2600,1800 L0,1800 Z" fill="rgba(168,145,103,0.20)"/>
+                <path d="M0,1210 C220,1148 390,1200 620,1160 C880,1112 1085,1020 1290,1070 C1510,1124 1700,1240 1940,1210 C2230,1175 2410,1084 3000,1130 L3000,1800 L0,1800 Z" fill="rgba(142,116,77,0.24)"/>
+                <path d="M0,1040 C200,988 345,1008 525,960 C735,904 980,828 1200,880 C1410,930 1545,1016 1770,996 C2010,974 2175,882 3000,946 L3000,1800 L0,1800 Z" fill="rgba(112,94,63,0.18)"/>
+                <g opacity="0.86">
+                  <rect x="120" y="1120" width="170" height="88" rx="14" fill="rgba(255,255,255,0.10)"/>
+                  <rect x="318" y="1090" width="90" height="118" rx="12" fill="rgba(255,255,255,0.08)"/>
+                  <rect x="2140" y="1140" width="170" height="84" rx="14" fill="rgba(255,255,255,0.10)"/>
+                  <rect x="2330" y="1095" width="100" height="130" rx="12" fill="rgba(255,255,255,0.08)"/>
+                </g>
+                <path id="riverTrack" d="" fill="none" stroke="url(#flowGrad)" stroke-width="26" stroke-linecap="round" stroke-linejoin="round" filter="url(#riverGlow)"/>
+                <path id="riverBand" d="" fill="none" stroke="url(#riverGrad)" stroke-width="56" stroke-linecap="round" stroke-linejoin="round" opacity=".56"/>
+                <path id="riverDash" d="" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="2" stroke-dasharray="12 16" stroke-linecap="round"/>
+                <g id="stations"></g>
+              </svg>
+              <div class="boat-overlay" id="boatOverlay">
+                <svg viewBox="0 0 260 220" width="260" height="220" class="boat-float">
+                  <g opacity=".24">
+                    <ellipse cx="132" cy="150" rx="72" ry="12" fill="#7d5d2c"></ellipse>
+                    <path d="M66,128 C92,120 108,120 132,128 C156,136 180,136 206,128" fill="none" stroke="rgba(78,142,207,.28)" stroke-width="4" stroke-linecap="round"/>
+                    <path d="M78,142 C96,136 112,136 132,142 C152,148 168,148 186,142" fill="none" stroke="rgba(78,169,122,.22)" stroke-width="3" stroke-linecap="round"/>
+                  </g>
+                  <g>
+                    <path d="M104,56 L104,30" stroke="#6a5230" stroke-width="5" stroke-linecap="round"/>
+                    <path d="M104,36 C120,32 132,38 132,46 C132,54 120,58 104,54 Z" fill="#9f7a42" opacity=".92"/>
+                    <path d="M136,24 C158,34 170,60 168,92 C154,82 144,62 136,46 Z" fill="#f6ead4" stroke="#d2c0a2" stroke-width="1.6"/>
+                    <path d="M96,22 L96,106" stroke="#6a5230" stroke-width="5" stroke-linecap="round"/>
+                    <path d="M88,74 C96,50 126,48 138,74 L138,90 L88,90 Z" fill="#d7c19a" stroke="#a98553" stroke-width="1.4"/>
+                    <path d="M48,90 L78,56 L160,56 L190,90 L170,124 L70,124 Z" fill="#9a6b33" stroke="#6b4e26" stroke-width="1.8"/>
+                    <path d="M60,96 L82,74 L156,74 L176,96 L166,114 L70,114 Z" fill="#c39153" opacity=".78"/>
+                    <path d="M76,86 L152,86" stroke="#f3e5c2" stroke-opacity=".45" stroke-width="2"/>
+                    <path d="M80,98 L148,98" stroke="#f3e5c2" stroke-opacity=".26" stroke-width="2"/>
+                    <path d="M170,90 L192,90 L182,108 Z" fill="#6b4e26"/>
+                    <circle cx="168" cy="98" r="3.2" fill="#f7efe2"/>
+                    <circle cx="70" cy="98" r="3.0" fill="#f7efe2"/>
+                    <circle cx="92" cy="84" r="4.4" fill="#342618"/>
+                    <path d="M88,86 L82,100" stroke="#342618" stroke-width="2.6" stroke-linecap="round"/>
+                    <path d="M86,92 L94,100" stroke="#342618" stroke-width="2.6" stroke-linecap="round"/>
+                  </g>
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="bottom-bar">
+          <div>提示：可以点击地图上的站点，也可以点击右侧“点击看详情”进入完整说明。</div>
+          <div class="buttons">
+            <button class="btn" id="playBtn">暂停自动航行</button>
+            <button class="btn secondary" id="resetBtn">回到北京</button>
+            <button class="btn secondary" id="detailBtn">查看当前详情</button>
+            <button class="btn danger" id="randomBtn">随机跳转</button>
+          </div>
+        </div>
+      </section>
+
+      <aside class="right" id="rightPanel">
+        <div class="panel-head">
+          <div class="panel-head-row">
+            <div>
+              <h2 id="placeTitle">北京 · 起点古韵</h2>
+              <div class="sub" id="placeSub">从北端启航，沿着大运河的文化脉络一路南下。</div>
+            </div>
+            <div class="badge" id="badge">当前站点</div>
+          </div>
+          <div class="tabs">
+            <button class="tab active" data-tab="tabOverview">概览</button>
+            <button class="tab" data-tab="tabExtend">扩展说明</button>
+            <button class="tab" data-tab="tabPoem">诗词意象</button>
+            <button class="tab" data-tab="tabList">沿线站点</button>
+          </div>
+        </div>
+
+        <div class="panel-body">
+          <!-- 概览tab 内容 -->
+          <section class="section active" id="tabOverview">
+            <div class="hero">
+              <div class="hero-card"><div class="hero-img" id="heroImg"><div class="hero-caption"><div class="place" id="heroPlace">北京段 · 起点风貌</div><div class="type" id="heroType">示意图：古河道、旧城与文化地标</div></div></div></div>
+              <div class="detail-card">
+                <div class="detail-head"><h3>建筑概览</h3><span>核心数据一览</span></div>
+                <div class="detail-grid">
+                  <div class="info-chip"><div class="k">代表建筑</div><div class="v" id="detailArch">燃灯塔、古河埠、沿河旧城风貌</div></div>
+                  <div class="info-chip"><div class="k">历史背景</div><div class="v" id="detailHistory">展现漕运、城市发展与地方文化的结合</div></div>
+                  <div class="info-chip"><div class="k">建筑风格</div><div class="v" id="detailStyle">塔影、水岸、古街巷、桥梁与会馆</div></div>
+                  <div class="info-chip"><div class="k">看点提示</div><div class="v" id="detailTip">点击左侧站点，查看不同城市的建筑特色</div></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="data-grid-4">
+              <div class="stat-mini"><div class="label">登记古建</div><div class="value" id="statBuildingCount">12 处</div></div>
+              <div class="stat-mini"><div class="label">桥梁/码头</div><div class="value" id="statBridgeCount">5 座</div></div>
+              <div class="stat-mini"><div class="label">核心年代</div><div class="value" id="statPeriod">元-清</div></div>
+              <div class="stat-mini"><div class="label">保护级别</div><div class="value" id="statProtection">国保/省市保</div></div>
+            </div>
+
+            <div class="section-addon">
+              <div class="addon-card"><h4>路线定位</h4><p id="overviewRoute">这是整条运河叙事的起点段，重点承担“开篇定调”的作用。</p></div>
+              <div class="addon-card"><h4>建筑关键词</h4><div class="addon-list" id="overviewTags"></div></div>
+              <div class="addon-card"><h4>展示建议</h4><p id="overviewHint">适合用作首页主视觉、路线开场页或章节引入页。</p></div>
+              <div class="addon-card"><h4>内容总结</h4><p id="overviewSummary">这一栏可以快速概括当前站点的建筑价值与历史层次。</p></div>
+            </div>
+
+            <div class="long-text-block"><strong>🏛️ 建筑详述</strong><p id="longDescText"></p></div>
+            <div class="long-text-block"><strong>📜 历史沿革</strong><p id="historyText"></p></div>
+            <div class="long-text-block"><strong>🔍 建筑细部特征</strong><p id="archFeatureText"></p></div>
+            
+            <!-- 新增三个维度的详细描述 -->
+            <div class="long-text-block"><strong>⚙️ 建筑技术特色</strong><p id="techFeatureText"></p></div>
+            <div class="long-text-block"><strong>🛡️ 保护与现状</strong><p id="protectionText"></p></div>
+            <div class="long-text-block"><strong>👤 相关历史人物</strong><p id="figuresText"></p></div>
+            <div class="long-text-block"><strong>📚 文化价值解读</strong><p id="cultureValueText"></p></div>
+
+            <div class="addon-card" style="margin-top:8px;"><h4>📋 主要建筑清单</h4><p id="buildingListDetail"></p></div>
+            <div class="addon-card"><h4>📐 空间特征补充</h4><p id="spaceExtra"></p></div>
+          </section>
+
+          <section class="section" id="tabExtend">
+            <div class="text-card">
+              <h3>扩展说明</h3>
+              <div class="text-grid">
+                <div class="paragraph"><strong>建筑说明</strong><span id="archName"></span></div>
+                <div class="paragraph"><strong>文化价值</strong><span id="archTime"></span></div>
+                <div class="paragraph"><strong>空间特征</strong><span id="archStyle"></span></div>
+                <div class="paragraph"><strong>适合展示方式</strong><span id="archTip2"></span></div>
+                <div class="paragraph"><strong>扩展叙事</strong><span id="extraDesc"></span></div>
+                <div class="paragraph"><strong>节点诗句</strong><span id="extraPoem"></span></div>
+              </div>
+              <div class="section-addon">
+                <div class="addon-card"><h4>空间结构</h4><p id="extendSpace"></p></div>
+                <div class="addon-card"><h4>叙事方式</h4><p id="extendStory"></p></div>
+                <div class="addon-card"><h4>配图建议</h4><p id="extendVisual"></p></div>
+                <div class="addon-card"><h4>建筑数据补遗</h4><p id="extendData"></p></div>
+              </div>
+              <div class="long-text-block"><strong>📖 深度解读</strong><p id="extendLongText"></p></div>
+              <p class="footer-note" id="desc"></p>
+            </div>
+          </section>
+
+          <section class="section" id="tabPoem">
+            <div class="quote-card">
+              <h3>诗词意象</h3>
+              <div class="quote" id="quoteLine"><span class="small" id="quoteSource"></span></div>
+              <div class="text-grid">
+                <div class="paragraph"><strong>当前节点诗句</strong><span id="poemText"></span></div>
+                <div class="paragraph"><strong>视觉建议</strong><span id="poemAdvice"></span></div>
+              </div>
+              <div class="section-addon">
+                <div class="addon-card"><h4>意象拆解</h4><p id="poemImage"></p></div>
+                <div class="addon-card"><h4>字幕文案</h4><p id="poemCaption"></p></div>
+                <div class="addon-card"><h4>画面节奏</h4><p id="poemRhythm"></p></div>
+                <div class="addon-card"><h4>氛围补充</h4><p id="poemMood"></p></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="section" id="tabList">
+            <div class="list-card">
+              <div class="list-head"><h3>沿线站点</h3><span>点击切换节点</span></div>
+              <div class="controls">
+                <input class="search" id="searchInput" placeholder="搜索站点，例如：苏州、扬州、古桥" />
+                <select class="filter" id="sortSelect"><option value="route">按航线顺序</option><option value="name">按站点名称</option></select>
+                <select class="filter" id="categorySelect"><option value="all">全部类别</option><option value="起点">起点</option><option value="古塔">古塔</option><option value="商埠">商埠</option><option value="古城">古城</option><option value="过渡">过渡</option><option value="水城">水城</option><option value="园林">园林</option><option value="终点">终点</option></select>
+              </div>
+              <div class="cards" id="cards"></div>
+            </div>
+          </section>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <div class="modal-mask" id="modalMask" aria-hidden="true">
+    <div class="modal">
+      <div class="modal-head"><div><h3 id="modalTitle">节点详情</h3><div id="modalSub"></div></div><button class="modal-close" id="closeModal">×</button></div>
+      <div class="modal-body">
+        <div class="modal-img" id="modalImg"></div>
+        <div class="modal-text">
+          <p id="modalDesc"></p><p id="modalExtra"></p>
+          <div class="timeline">
+            <div class="timeline-item"><div class="dot"></div><div><strong>建筑节点</strong><span id="modalArch"></span></div></div>
+            <div class="timeline-item"><div class="dot"></div><div><strong>历史线索</strong><span id="modalHistory"></span></div></div>
+            <div class="timeline-item"><div class="dot"></div><div><strong>诗词意象</strong><span id="modalPoem"></span></div></div>
+            <div class="timeline-item"><div class="dot"></div><div><strong>展示建议</strong><span id="modalTips"></span></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      // 数据定义，新增四个字段 techFeature, protectionStatus, relatedFigures, cultureValue
+      const stops = [
+        { name:"北京", short:"起点", x:152, y:90, progress:0, category:"起点", tags:["起点","北端","文化源头"],
+          hero:"linear-gradient(135deg, rgba(98,72,38,.30), rgba(255,255,255,.06)), linear-gradient(180deg, #d8c8a8, #aa8d5b)",
+          heroPlace:"北京段 · 起点风貌", heroType:"古河道、旧城与文化地标",
+          archName:"通惠河、什刹海、燃灯塔等北京段相关遗存",
+          archTime:"元明清时期的漕运起点与城市水系变迁",
+          archStyle:"宫城气质、古塔、河岸、桥与街巷",
+          archTip:"适合开篇欢迎页和路线总览页。",
+          poem:"烟波起北地，长河入画来。", quote:"一河串城，北起京华，南抵江南。",
+          quoteSource:"可作为开篇总述文案。",
+          extraDesc:"北京段适合作为全景叙事的开场，通过古塔、河埠、老街建立运河文化的历史氛围。",
+          desc:"北京段适合作为全景叙事的开场。",
+          poemAdvice:"用开阔画面和清晨色调，强调起航意味。",
+          buildingCount:"12处", bridgeCount:"5座", period:"元-清", protection:"国保/市保",
+          buildingList:"燃灯塔 · 通惠河故道 · 什刹海寺庙群 · 银锭桥 · 南新仓",
+          spaceExtra:"轴线感强，河与城相互嵌套，建筑沿河呈线性分布。",
+          extendData:"现存古桥5座，会馆遗址8处。",
+          longDesc:"北京作为京杭大运河的北端起点，元代郭守敬主持开凿通惠河，使漕船可直达积水潭。沿岸分布着燃灯佛舍利塔、什刹海寺庙群、南新仓等建筑遗存。燃灯塔始建于北周，是运河标志性景观；通惠河故道与玉河遗址则揭示了古代水利工程的智慧。",
+          historyText:"元世祖至元二十九年（1292年）通惠河开工，由都水监郭守敬主持。明清两代，通州成为漕运枢纽。清咸丰五年黄河改道，运河衰落，但北京段仍保留大量遗产，2014年列入世界文化遗产。",
+          archFeature:"燃灯塔为八角十三层密檐式砖塔，高约56米，塔身布满精美砖雕；什刹海寺庙与王府园林结合；南新仓为明清皇家粮仓，悬山合瓦顶，墙体厚实。",
+          extendLong:"北京段运河建筑具有强烈的政治与军事色彩，通州城垣、大运仓等服务于都城物资供应。运河也带来南北文化交融，通州清真寺、张家湾琉球人墓地等为见证。",
+          techFeature:"通惠河利用白浮泉水源，设多座船闸调节水位，是古代水利技术的杰出代表。燃灯塔采用砖砌密檐结构，抗震性能良好。南新仓仓廒采用悬山合瓦顶，墙体厚达1.3米，内设通风孔，防潮防火设计科学。",
+          protectionStatus:"燃灯塔为全国重点文物保护单位，多次修缮。什刹海地区为历史文化保护区，南新仓改造为文化休闲街区。通惠河故道部分段已恢复历史景观。",
+          relatedFigures:"郭守敬（主持开凿通惠河）、忽必烈（下令开通运河）、乾隆（多次沿运河巡视）、朱启钤（近代保护北京古建筑）。",
+          cultureValue:"北京段是运河文化的起点，体现了都城与运河的紧密依存关系。建筑群反映了元明清三代的政治、经济与文化交流，具有极高的历史、科学和艺术价值。"
+        },
+        { name:"通州", short:"燃灯塔", x:262, y:180, progress:11, category:"古塔", tags:["古塔","门户","水岸"],
+          hero:"linear-gradient(135deg, rgba(98,72,38,.24), rgba(255,255,255,.06)), linear-gradient(180deg, #30261b, #a68a63)",
+          heroPlace:"通州段 · 燃灯塔意象", heroType:"古塔与河道门户景观",
+          archName:"燃灯塔、古桥、码头遗迹、沿河旧城街区",
+          archTime:"通州作为京东运河门户的重要地位",
+          archStyle:"塔影突出、岸线清晰、古城与水路交汇",
+          archTip:"适合强化“船到门户”的视觉叙事。",
+          poem:"塔影临河立，风帆接远天。", quote:"塔立水边，门户自开。",
+          quoteSource:"适合作为通州节点的视觉标题。",
+          extraDesc:"通州段非常适合做“中继站”，燃灯塔是极具辨识度的历史意象。",
+          desc:"通州段非常适合做“中继站”。",
+          poemAdvice:"突出塔的竖向感，河道横向延展。",
+          buildingCount:"8处", bridgeCount:"3座", period:"北齐-清", protection:"国保",
+          buildingList:"燃灯塔 · 通州古桥 · 大光楼 · 石坝码头",
+          spaceExtra:"塔作为制高点，控制河岸天际线。",
+          extendData:"燃灯塔为北周创建，清代重修。",
+          longDesc:"通州燃灯塔全称“燃灯佛舍利塔”，始建于北周，现存为清代重修，是京杭大运河最北端的标志。塔高56米，塔身各面均有砖雕佛像。塔与运河相望，古时漕船望见塔影便知抵达京城。",
+          historyText:"通州自金代起为漕运重镇，元代通惠河开通后地位更显。明清每年数百万石漕粮经此转运京城。“一支塔影认通州”流传至今。",
+          archFeature:"燃灯塔砖雕精美，十三层密檐层层收分，檐角悬挂风铃。大光楼为明清漕运官员办公之所，二层歇山顶。",
+          extendLong:"通州运河建筑群体现了从实用功能到精神象征的转变，燃灯塔既是宗教建筑也是航标。",
+          techFeature:"燃灯塔采用砖砌套筒结构，内部有梯道可登临。塔基须弥座雕刻精细，塔身仿木斗拱为砖雕。大光楼木构架用材硕大，具有官式建筑特征。",
+          protectionStatus:"燃灯塔为国保单位，近年进行过全面修缮和环境整治。大光楼已复建，石坝码头遗址保护性展示。",
+          relatedFigures:"宇文恺（相传设计燃灯塔原型）、康熙、乾隆（多次驻跸通州）、王芝祥（近代教育家，保护通州文庙）。",
+          cultureValue:"通州段是运河进入京城前的最后门户，建筑兼具实用与象征意义，是研究运河城镇形态和建筑技术的典型样本。"
+        },
+        { name:"天津", short:"漕运", x:322, y:315, progress:24, category:"商埠", tags:["漕运","桥梁","商埠"],
+          hero:"linear-gradient(135deg, rgba(98,72,38,.24), rgba(255,255,255,.06)), linear-gradient(180deg, #221b14, #e8dbc0)",
+          heroPlace:"天津段 · 漕运与桥景", heroType:"码头、桥梁和商埠风貌",
+          archName:"古桥、会馆、码头遗存、河岸民居",
+          archTime:"运河商业繁荣、南北货物流通的历史",
+          archStyle:"桥景丰富、街市繁忙、建筑密度较高",
+          archTip:"适合做商业节点，增强人流与车船动态。",
+          poem:"帆影穿桥过，商声入市来。", quote:"漕运连南北，商埠聚津门。",
+          quoteSource:"表达天津段的繁盛气息。",
+          extraDesc:"天津段重点表达漕运与商贸主题，加入拱桥、会馆门楼和河岸仓储。",
+          desc:"天津段重点表达漕运与商贸主题。",
+          poemAdvice:"加入车船流动和桥下穿行的节奏感。",
+          buildingCount:"15处", bridgeCount:"7座", period:"明-民国", protection:"国保/市保",
+          buildingList:"天后宫 · 广东会馆 · 解放桥 · 古文化街建筑群",
+          spaceExtra:"会馆密集，形成“津门故里”建筑组团。",
+          extendData:"三岔河口一带集中了大量漕运相关建筑。",
+          longDesc:"天津因运河而兴，三岔河口是南运河、北运河与海河交汇处。沿岸分布天后宫、广东会馆、玉皇阁等建筑及众多码头仓库。天后宫为北方妈祖信仰中心；广东会馆戏楼木雕精美。",
+          historyText:"明永乐二年天津设卫筑城，城市围绕运河展开。清代天津成为北方最大商贸城市，各地商帮建立会馆。运河带来多元文化，形成“五方杂处”的城市性格。",
+          archFeature:"天津运河建筑风格混杂，天后宫大殿为明代木构，斗拱硕大；广东会馆戏楼采用悬空式舞台，藻井精美。沿岸民居青砖灰瓦，院落狭长。",
+          extendLong:"天津段建筑的核心价值在于“拼贴”特性，不同地域建筑风格在此碰撞融合。",
+          techFeature:"广东会馆戏楼藻井为螺旋形木构，不用一钉，声学效果极佳。天后宫大殿斗拱为五踩重昂，具有明代官式特征。解放桥为开启式钢桥，是近代工业技术的代表。",
+          protectionStatus:"天后宫、广东会馆为国保单位，古文化街为历史文化街区。三岔河口区域进行过多次环境整治和遗址展示。",
+          relatedFigures:"妈祖（海神信仰）、李鸿章（在天津推动洋务，影响城市建设）、严修（教育家，保护天津文庙）。",
+          cultureValue:"天津段展现了运河商贸城市的典型特征，建筑是南北文化、中外文化交融的物证，对研究中国近代城市发展具有重要价值。"
+        },
+        { name:"沧州", short:"古城", x:408, y:403, progress:36, category:"古城", tags:["古城","碑刻","旧街区"],
+          hero:"linear-gradient(135deg, rgba(98,72,38,.22), rgba(255,255,255,.06)), linear-gradient(180deg, #231b17, #dcc79d)",
+          heroPlace:"沧州段 · 古城风貌", heroType:"牌坊、碑刻与古街巷",
+          archName:"旧城街区、牌坊、碑刻、古桥与沿河民居",
+          archTime:"运河滋养城市空间的作用",
+          archStyle:"朴素厚重、街巷感强、建筑围合明显",
+          archTip:"可多放石刻、门楼和街巷细节。",
+          poem:"石刻留旧字，城门听晚钟。", quote:"古城留石韵，河风入旧街。",
+          quoteSource:"表达沧州的厚重感。",
+          extraDesc:"沧州段适合做“历史纹理”呈现，突出古城肌理。",
+          desc:"沧州段适合做“历史纹理”呈现。",
+          poemAdvice:"把碑刻、门楼、旧街和河岸民居做近景展示。",
+          buildingCount:"9处", bridgeCount:"4座", period:"宋-清", protection:"省保",
+          buildingList:"沧州文庙 · 清真北大寺 · 古运河码头群",
+          spaceExtra:"街巷格局保存较好，与运河垂直连通。",
+          extendData:"铁狮子与运河文化有一定关联。",
+          longDesc:"沧州段运河穿城而过，留下文庙、清真寺、古码头等丰富遗存。文庙始建于明，是运河城市崇文重教的象征。清真北大寺融合中国传统木结构与伊斯兰风格。",
+          historyText:"沧州自古为军事重镇，运河开通后成为南北交通要道。明代设长芦盐运司，盐业兴盛。清代乾隆南巡多次驻跸沧州。",
+          archFeature:"沧州建筑多青砖灰瓦，朴素厚重。文庙大成殿单檐歇山顶，斗拱疏朗；清真寺礼拜殿勾连搭式，内部空间开阔。沿河民居形成“前店后河”模式。",
+          extendLong:"沧州段视觉宜突出“古”与“朴”，强调石材、砖墙的质感。",
+          techFeature:"清真北大寺礼拜殿采用勾连搭结构扩大空间，窑殿为穹顶，中西结合。文庙大成殿木构架为抬梁式，用材规整。古码头石砌台阶，坚固耐用。",
+          protectionStatus:"沧州文庙、清真北大寺为省保单位，近年进行过修缮。部分古码头遗址已纳入保护规划。",
+          relatedFigures:"纪晓岚（沧州人，清代学者）、张之洞（祖籍沧州，洋务派代表）、马本斋（民族英雄）。",
+          cultureValue:"沧州段建筑体现了运河古城的历史延续性，是研究华北地区运河城市形态和建筑技术的重要实例。"
+        },
+        { name:"德州", short:"过渡", x:460, y:463, progress:47, category:"过渡", tags:["过渡","古桥","河岸"],
+          hero:"linear-gradient(135deg, rgba(98,72,38,.20), rgba(255,255,255,.06)), linear-gradient(180deg, #211814, #efe4ce)",
+          heroPlace:"德州段 · 过渡节点", heroType:"古桥、旧城与河岸空间",
+          archName:"古桥、旧城街区、河岸民居、历史码头",
+          archTime:"衔接北部与中部河段的文化过渡",
+          archStyle:"平和稳重、桥和街道联系紧密",
+          archTip:"适合做章节分隔页。",
+          poem:"桥连两岸路，水送一城秋。", quote:"转入中河段，渐见江南意。",
+          quoteSource:"作为章节过渡页文案。",
+          extraDesc:"德州段可作为中部转场节点，过渡到更强水网与南方意象。",
+          desc:"德州段可作为中部转场节点。",
+          poemAdvice:"色调平稳、过渡自然。",
+          buildingCount:"6处", bridgeCount:"3座", period:"明-清", protection:"市保",
+          buildingList:"德州码头 · 苏禄王墓 · 古运河桥",
+          spaceExtra:"建筑风格开始出现南北交融特征。",
+          extendData:"德州段运河弯曲较多，形成独特景观。",
+          longDesc:"德州段是运河从北方平原向鲁中山地过渡的关键段落，河道弯曲，风景优美。沿岸建筑以码头、仓库和民居为主，风格开始出现南北交融的迹象。",
+          historyText:"德州自隋唐即为运河重镇，明代设德州仓，为四大漕仓之一。清代康熙、乾隆南巡多次经停德州。",
+          archFeature:"德州运河建筑多采用当地青石，风格质朴。古桥多为单孔或三孔石拱桥，桥面平缓。民居院落较北方更为紧凑，开始出现南方元素。",
+          extendLong:"作为过渡节点，德州段的画面应强调“变”的过程。",
+          techFeature:"德州古桥采用纵联砌筑法，结构稳定。部分码头设有泊岸与踏步，设计合理。民居开始使用木构架承重，墙体为填充墙。",
+          protectionStatus:"德州码头遗址为市保单位，部分河段进行了景观提升。苏禄王墓为国保单位，保存完好。",
+          relatedFigures:"苏禄东王（葬于德州，见证中外交流）、乾隆（南巡驻跸）、田雯（清代文人，德州籍）。",
+          cultureValue:"德州段是运河文化过渡带的重要样本，建筑体现了南北风格的初步交融，对研究运河沿线文化传播具有参考价值。"
+        },
+        { name:"济宁", short:"水城", x:510, y:522, progress:58, category:"水城", tags:["水城","古桥","文脉"],
+          hero:"linear-gradient(135deg, rgba(98,72,38,.20), rgba(255,255,255,.06)), linear-gradient(180deg, #211a14, #1c2832)",
+          heroPlace:"济宁段 · 运河水城", heroType:"古桥、水街和沿河码头",
+          archName:"古桥、水街、运河会馆、传统民居",
+          archTime:"运河文化在城市空间中的持续影响",
+          archStyle:"水街相连、桥梁穿插、生活气息浓",
+          archTip:"适合做“水城漫游”风格的场景切换。",
+          poem:"水街通古渡，桥月照人家。", quote:"桥在水上，人在画中。",
+          quoteSource:"用作济宁段的氛围短句。",
+          extraDesc:"济宁段非常适合做“水城化”展示，古桥、河埠、旧宅组合。",
+          desc:"济宁段非常适合做“水城化”展示。",
+          poemAdvice:"加入水面倒影和桥拱重复，突出水城结构。",
+          buildingCount:"14处", bridgeCount:"9座", period:"元-清", protection:"国保/省保",
+          buildingList:"太白楼 · 竹竿巷 · 东大寺 · 古运河石桥群",
+          spaceExtra:"水街与主河道垂直，形成鱼骨状肌理。",
+          extendData:"济宁被称为“运河之都”，会馆建筑极多。",
+          longDesc:"济宁被誉为“运河之都”，元明清三代均设最高运河管理机构。城内水网密布，古桥众多，太白楼、竹竿巷、东大寺等建筑沿河分布。",
+          historyText:"济宁在元代因运河而兴，设济宁路管理漕运。明代设河道总督衙门。清代乾隆六次南巡均驻跸济宁。有“江北小苏州”之称。",
+          archFeature:"济宁建筑兼具北方大气与南方灵秀。太白楼为二层歇山顶楼阁；竹竿巷建筑多为二层，底层商铺上层居住；东大寺礼拜殿中西合璧。",
+          extendLong:"济宁段视觉重点在于“水”与“城”的交织，宜运用倒影、桥拱、水街透视营造水城氛围。",
+          techFeature:"竹竿巷建筑采用穿斗式与抬梁式混合构架，适应商业空间需求。东大寺窑殿穹顶为砖砌，技术精湛。古桥多为石拱，券石加工精细。",
+          protectionStatus:"太白楼、东大寺为国保单位，竹竿巷为历史文化街区。近年对古运河进行了环境整治和部分建筑修缮。",
+          relatedFigures:"李白（曾居济宁，太白楼为其纪念地）、河道总督靳辅、陈潢（治河名臣）。",
+          cultureValue:"济宁段是运河管理中枢所在地，建筑体现了行政、商业、宗教、居住功能的复合，是研究运河城市形态的典范。"
+        },
+        { name:"扬州", short:"繁华", x:559, y:583, progress:71, category:"园林", tags:["园林","会馆","繁华"],
+          hero:"linear-gradient(135deg, rgba(98,72,38,.18), rgba(255,255,255,.06)), linear-gradient(180deg, #231d17, #1f2a31)",
+          heroPlace:"扬州段 · 盛景印象", heroType:"园林、会馆与运河繁华",
+          archName:"园林意象、会馆建筑、古街与河埠",
+          archTime:"盐商文化和运河繁荣带来的城市发展",
+          archStyle:"精致、雅致、建筑层次丰富",
+          archTip:"可加入更多繁华的装饰感。",
+          poem:"烟花三月路，风雅满扬州。", quote:"烟花三月下扬州。",
+          quoteSource:"经典名句，最适合扬州节点。",
+          extraDesc:"扬州段重点突出繁华与雅致，园林、会馆、旧街高度融合。",
+          desc:"扬州段重点突出繁华与雅致。",
+          poemAdvice:"加入繁华灯影、园林回廊和层次感。",
+          buildingCount:"20处", bridgeCount:"12座", period:"唐-清", protection:"国保/省保",
+          buildingList:"个园 · 何园 · 瘦西湖建筑群 · 汪氏小苑",
+          spaceExtra:"园林与运河互相借景，形成“两岸花柳全依水”。",
+          extendData:"扬州盐商住宅是运河建筑的杰出代表。",
+          longDesc:"扬州是运河沿线最为繁华的城市之一，盐商云集，园林甲天下。个园以四季假山闻名，何园复道回廊被誉为“天下第一廊”。瘦西湖沿岸分布五亭桥、白塔等。",
+          historyText:"唐代扬州已是国际大港。明清因盐运达鼎盛，盐商大兴土木。乾隆六次南巡，扬州盐商争相造园迎驾。",
+          archFeature:"扬州园林融合南北之长，个园抱山楼、何园玉绣楼均为二层楼阁，木雕、砖雕、石雕精美。五亭桥是桥梁与亭的结合。",
+          extendLong:"扬州段适合用华丽而雅致的视觉语言，多用金色、朱红点缀繁华。",
+          techFeature:"个园假山采用分峰用石手法，体现高超的叠石技艺。何园复道回廊长达1500米，串联各建筑。五亭桥桥亭结合，结构巧妙。",
+          protectionStatus:"个园、何园为全国重点文物保护单位，瘦西湖为国家级风景名胜区。近年对历史街区进行了保护性修缮。",
+          relatedFigures:"盐商江春、马曰琯（造园名家）、郑板桥、金农（扬州八怪）、乾隆。",
+          cultureValue:"扬州段建筑代表了运河商业城市的最高成就，是盐商文化、园林艺术与运河景观完美结合的典范。"
+        },
+        { name:"苏州", short:"园林", x:606, y:642, progress:85, category:"园林", tags:["园林","古桥","江南"],
+          hero:"linear-gradient(135deg, rgba(98,72,38,.16), rgba(255,255,255,.06)), linear-gradient(180deg, #221d19, #1d2a30)",
+          heroPlace:"苏州段 · 江南园林气质", heroType:"古桥、园林与河网交织",
+          archName:"园林建筑、古桥、河街与江南宅院",
+          archTime:"江南水乡与运河共同塑造的审美格局",
+          archStyle:"婉约、曲折、白墙黛瓦、桥景丰富",
+          archTip:"可增加雾气、倒影和慢镜头感。",
+          poem:"小桥春水近，粉墙柳色深。", quote:"小桥流水人家。",
+          quoteSource:"极适合苏州与江南水乡气质。",
+          extraDesc:"苏州段把“江南美学”作为核心，白墙黛瓦、桥梁、园林相互映衬。",
+          desc:"苏州段把“江南美学”作为核心。",
+          poemAdvice:"加入薄雾、倒影、慢镜头感和曲径回廊。",
+          buildingCount:"25处", bridgeCount:"18座", period:"宋-清", protection:"世界遗产/国保",
+          buildingList:"拙政园 · 留园 · 山塘街 · 宝带桥",
+          spaceExtra:"园林与运河构成双重水景体系。",
+          extendData:"苏州是运河沿线唯一以“古城”概念整体申遗的城市。",
+          longDesc:"苏州古城与运河相伴相生，水陆并行、河街相邻的双棋盘格局延续千年。拙政园、留园为世界文化遗产，山塘街、平江路是典型水乡街巷。宝带桥全长317米，53孔连缀。",
+          historyText:"苏州唐代后依托运河成为江南经济中心。明清为全国最大工商业城市之一，丝绸、棉布贸易兴盛。运河促进了文化繁荣，吴门画派、昆曲、园林艺术均达高峰。",
+          archFeature:"苏州建筑粉墙黛瓦、轻巧秀丽。园林建筑多用卷棚顶、美人靠、花窗。民居多为二层楼阁，沿河设码头水埠。古桥多为单孔石拱桥。",
+          extendLong:"苏州段视觉应突出“精致”与“婉约”，运用雾、雨、倒影增加诗意。",
+          techFeature:"宝带桥采用薄墩联拱技术，53孔连缀，泄洪能力强。园林建筑木构架精细，花窗图案丰富。山塘街河岸驳岸以条石砌筑，工艺考究。",
+          protectionStatus:"苏州古典园林为世界文化遗产，古城为全国历史文化名城。近年实施古城保护更新，修缮了大量传统建筑。",
+          relatedFigures:"白居易（开凿山塘河）、文徵明（设计拙政园）、贝聿铭（苏州博物馆设计者）。",
+          cultureValue:"苏州段是运河沿线文化景观最杰出的代表，建筑与园林体现了江南水乡的最高美学成就，是世界文化遗产的组成部分。"
+        },
+        { name:"嘉兴", short:"桥城", x:632, y:676, progress:92, category:"过渡", tags:["桥城","水岸","终章过渡"],
+          hero:"linear-gradient(135deg, rgba(98,72,38,.16), rgba(255,255,255,.06)), linear-gradient(180deg, #231d18, #1f2a31)",
+          heroPlace:"嘉兴段 · 桥城印象", heroType:"古桥、河埠与水岸街巷",
+          archName:"古桥、河埠、沿河民居、街巷风貌",
+          archTime:"承接江南水网文化，苏杭之间的重要过渡",
+          archStyle:"紧凑、柔和、桥街互动明显",
+          archTip:"适合作为终点前的过渡层。",
+          poem:"桥声连暮雨，水巷入微澜。", quote:"桥连水巷，风入人家。",
+          quoteSource:"适合作为终点前的缓冲段。",
+          extraDesc:"嘉兴段连接苏州与杭州，强调桥与河、街与水的互动关系。",
+          desc:"嘉兴段连接苏州与杭州。",
+          poemAdvice:"让桥与水巷的互动更紧凑，为终点收束铺垫。",
+          buildingCount:"10处", bridgeCount:"6座", period:"宋-清", protection:"省保",
+          buildingList:"月河街区 · 嘉兴天主堂 · 长虹桥",
+          spaceExtra:"三塔路一带运河景观开阔。",
+          extendData:"嘉兴是运河重要节点，也是江南水乡典范。",
+          longDesc:"嘉兴地处苏杭之间，运河穿城而过，城内河网如织，古桥众多。月河历史街区保留了大量明清建筑。长虹桥为三孔石拱桥，是江南水乡桥梁典范。嘉兴天主堂为哥特式建筑。",
+          historyText:"嘉兴自古为江南富庶之地，宋代已是“百工技艺与苏杭等”。运河带来商贸繁荣，近代为重要丝绸集散地。",
+          archFeature:"嘉兴建筑风格与苏州相近但更质朴。民居多为二层，木构架外露，山墙有马头墙。月河街区建筑紧凑，巷道狭窄。长虹桥造型优美。",
+          extendLong:"作为终点前过渡，嘉兴画面宜保持江南水乡温婉，逐渐引导视线向开阔的杭州西湖方向延伸。",
+          techFeature:"长虹桥采用纵联分节并列砌筑法，结构稳固。月河街区建筑以穿斗式木构为主，适应潮湿环境。天主堂为砖石结构，哥特式尖券技术。",
+          protectionStatus:"月河街区为省级历史文化街区，长虹桥为省保单位。近年进行过环境整治和部分建筑修缮。",
+          relatedFigures:"朱彝尊（清代学者，嘉兴人）、沈钧儒（爱国民主人士）、金庸（武侠小说家）。",
+          cultureValue:"嘉兴段是运河江南段的典型代表，建筑融合水乡特色与近代中西文化，是研究江南城镇发展的珍贵样本。"
+        },
+        { name:"杭州", short:"终点", x:654, y:684, progress:100, category:"终点", tags:["终点","南端","江南终章"],
+          hero:"linear-gradient(135deg, rgba(98,72,38,.16), rgba(255,255,255,.06)), linear-gradient(180deg, #221d19, #1f2a31)",
+          heroPlace:"杭州段 · 终点意象", heroType:"江南终章与水岸余韵",
+          archName:"桥、河埠、古街与江南建筑群",
+          archTime:"作为整条路线的收束点，形成终章效果",
+          archStyle:"清丽、开阔、带有回望感",
+          archTip:"终点页适合加入“返航/重看全线”的按钮。",
+          poem:"一卷江南画，收于西子边。", quote:"欲把西湖比西子，淡妆浓抹总相宜。",
+          quoteSource:"作为终点收束非常合适。",
+          extraDesc:"杭州段是终点，也最适合做“回望与总结”页面。",
+          desc:"杭州段是终点，适合做回望与总结。",
+          poemAdvice:"做成收束式画面，突出余韵和回望感。",
+          buildingCount:"18处", bridgeCount:"10座", period:"五代-清", protection:"国保/省保",
+          buildingList:"拱宸桥 · 桥西历史街区 · 富义仓 · 凤山水城门",
+          spaceExtra:"运河终点与西湖文化景观交汇。",
+          extendData:"杭州段保留了大量清末民初的仓库和码头建筑。",
+          longDesc:"杭州是京杭大运河的南端终点，运河与钱塘江交汇，与西湖构成独特水网。拱宸桥是运河终点标志，桥西历史街区保留清末民初建筑。富义仓为清代皇家粮仓，凤山水城门为杭州仅存古城门。",
+          historyText:"隋代江南运河开通，杭州成为南端枢纽。南宋定都临安，运河为都城生命线。明清杭州依然是江南经济中心。近代运河衰落，但杭州段保留大量工业遗产和传统街区。",
+          archFeature:"杭州运河建筑兼具江南灵秀与近代工业痕迹。拱宸桥为三孔石拱桥，造型雄伟；桥西街区建筑多为二层木结构，沿河设连廊。富义仓为大型仓储，抬梁式木构。",
+          extendLong:"杭州段作为终点，画面宜营造“抵达”与“回望”的双重意境，运用长镜头展现运河与西湖、钱塘江的宏大关系。",
+          techFeature:"拱宸桥采用薄墩联拱技术，中孔最大，便于通航。富义仓仓廒采用抬梁式，空间开阔，地面架空防潮。凤山水城门石砌拱券，兼具防御与水利功能。",
+          protectionStatus:"拱宸桥为国保单位，桥西历史街区为历史文化街区，富义仓已改造为文化创意园。大运河杭州段整体保护状况良好。",
+          relatedFigures:"白居易、苏轼（治理西湖）、钱镠（吴越国王，建设杭州）、马可·波罗（赞誉杭州）。",
+          cultureValue:"杭州段是京杭大运河的终点，也是运河文化与西湖文化交汇之地，建筑体现了古代水利、仓储、防御、居住等多种功能，是运河文化遗产的重要组成部分。"
+        }
+      ];
+
+      // DOM 元素
+      const stationGroup = document.getElementById("stations");
+      const cardsEl = document.getElementById("cards");
+      const mapSvg = document.getElementById("mapSvg");
+      const mapViewport = document.getElementById("mapViewport");
+      const boatOverlay = document.getElementById("boatOverlay");
+      const playBtn = document.getElementById("playBtn");
+      const resetBtn = document.getElementById("resetBtn");
+      const detailBtn = document.getElementById("detailBtn");
+      const randomBtn = document.getElementById("randomBtn");
+      const modalMask = document.getElementById("modalMask");
+      const closeModal = document.getElementById("closeModal");
+      const searchInput = document.getElementById("searchInput");
+      const sortSelect = document.getElementById("sortSelect");
+      const categorySelect = document.getElementById("categorySelect");
+      const speedSlider = document.getElementById("speedSlider");
+      const speedLabel = document.getElementById("speedLabel");
+
+      const longDescText = document.getElementById("longDescText");
+      const historyTextEl = document.getElementById("historyText");
+      const archFeatureText = document.getElementById("archFeatureText");
+      const extendLongText = document.getElementById("extendLongText");
+      const statBuilding = document.getElementById("statBuildingCount");
+      const statBridge = document.getElementById("statBridgeCount");
+      const statPeriod = document.getElementById("statPeriod");
+      const statProtection = document.getElementById("statProtection");
+      const buildingListDetail = document.getElementById("buildingListDetail");
+      const spaceExtraEl = document.getElementById("spaceExtra");
+      const extendDataEl = document.getElementById("extendData");
+      const techFeatureText = document.getElementById("techFeatureText");
+      const protectionText = document.getElementById("protectionText");
+      const figuresText = document.getElementById("figuresText");
+      const cultureValueText = document.getElementById("cultureValueText");
+
+      const els = {
+        placeTitle: document.getElementById("placeTitle"), placeSub: document.getElementById("placeSub"),
+        badge: document.getElementById("badge"), heroImg: document.getElementById("heroImg"),
+        heroPlace: document.getElementById("heroPlace"), heroType: document.getElementById("heroType"),
+        detailArch: document.getElementById("detailArch"), detailHistory: document.getElementById("detailHistory"),
+        detailStyle: document.getElementById("detailStyle"), detailTip: document.getElementById("detailTip"),
+        archName: document.getElementById("archName"), archTime: document.getElementById("archTime"),
+        archStyle: document.getElementById("archStyle"), archTip2: document.getElementById("archTip2"),
+        extraDesc: document.getElementById("extraDesc"), extraPoem: document.getElementById("extraPoem"),
+        desc: document.getElementById("desc"), quoteLine: document.getElementById("quoteLine"),
+        quoteSource: document.getElementById("quoteSource"), poemText: document.getElementById("poemText"),
+        poemAdvice: document.getElementById("poemAdvice"), overviewRoute: document.getElementById("overviewRoute"),
+        overviewTags: document.getElementById("overviewTags"), overviewHint: document.getElementById("overviewHint"),
+        overviewSummary: document.getElementById("overviewSummary"),
+        extendSpace: document.getElementById("extendSpace"), extendStory: document.getElementById("extendStory"),
+        extendVisual: document.getElementById("extendVisual"),
+        poemImage: document.getElementById("poemImage"), poemCaption: document.getElementById("poemCaption"),
+        poemRhythm: document.getElementById("poemRhythm"), poemMood: document.getElementById("poemMood"),
+        modalTitle: document.getElementById("modalTitle"), modalSub: document.getElementById("modalSub"),
+        modalImg: document.getElementById("modalImg"), modalDesc: document.getElementById("modalDesc"),
+        modalExtra: document.getElementById("modalExtra"), modalArch: document.getElementById("modalArch"),
+        modalHistory: document.getElementById("modalHistory"), modalPoem: document.getElementById("modalPoem"),
+        modalTips: document.getElementById("modalTips")
+      };
+
+      const canvasW = 3000, canvasH = 1800;
+      const scaleX = 3.45, scaleY = 2.05, offsetX = 120, offsetY = 88;
+      const points = stops.map(s => ({ ...s, mx: Math.round(s.x * scaleX + offsetX), my: Math.round(s.y * scaleY + offsetY) }));
+
+      function smoothPath(pts){
+        if(pts.length < 2) return "";
+        let d = `M ${pts[0].mx},${pts[0].my}`;
+        for(let i=0;i<pts.length-1;i++){
+          const p0 = pts[i-1] || pts[i], p1 = pts[i], p2 = pts[i+1], p3 = pts[i+2] || p2;
+          const cp1x = p1.mx + (p2.mx - p0.mx)/6, cp1y = p1.my + (p2.my - p0.my)/6;
+          const cp2x = p2.mx - (p3.mx - p1.mx)/6, cp2y = p2.my - (p3.my - p1.my)/6;
+          d += ` C ${cp1x},${cp1y} ${cp2x},${cp2y} ${p2.mx},${p2.my}`;
+        }
+        return d;
+      }
+
+      const pathD = smoothPath(points);
+      document.getElementById("riverTrack").setAttribute("d", pathD);
+      document.getElementById("riverBand").setAttribute("d", pathD);
+      document.getElementById("riverDash").setAttribute("d", pathD);
+      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      path.setAttribute("d", pathD);
+
+      function clamp(n,min,max){ return Math.max(min, Math.min(max, n)); }
+      function getPointAt(progress){
+        const len = path.getTotalLength();
+        const p = clamp(progress,0,1)*len;
+        const pt = path.getPointAtLength(p);
+        const pt2 = path.getPointAtLength(clamp(p+1,0,len));
+        const angle = Math.atan2((pt2.y - pt.y), (pt2.x - pt.x)) * 180 / Math.PI;
+        return { x: pt.x, y: pt.y, angle };
+      }
+
+      function findProgressNearPoint(px,py){
+        const len = path.getTotalLength();
+        let bestL=0, bestD=Infinity;
+        for(let i=0;i<=1200;i++){ const l=(len*i)/1200; const pt=path.getPointAtLength(l); const d=(pt.x-px)**2+(pt.y-py)**2; if(d<bestD){bestD=d; bestL=l;} }
+        let window=len/1200;
+        for(let r=0;r<3;r++){ const s=Math.max(0,bestL-window), e=Math.min(len,bestL+window); bestD=Infinity; for(let i=0;i<=60;i++){ const l=s+(e-s)*(i/60); const pt=path.getPointAtLength(l); const d=(pt.x-px)**2+(pt.y-py)**2; if(d<bestD){bestD=d; bestL=l;} } window/=4; }
+        return bestL/len;
+      }
+
+      const nodeProgress = points.map(p => findProgressNearPoint(p.mx, p.my));
+
+      function makeStation(stop, idx){
+        const p = points[idx];
+        const g = document.createElementNS("http://www.w3.org/2000/svg","g");
+        g.classList.add("station"); g.dataset.idx = idx;
+        g.setAttribute("transform", `translate(${p.mx},${p.my})`);
+        const pulse = document.createElementNS("http://www.w3.org/2000/svg","circle"); pulse.setAttribute("cx",0); pulse.setAttribute("cy",0); pulse.setAttribute("r",12); pulse.setAttribute("fill","rgba(181,138,62,.14)"); pulse.setAttribute("class","pulse");
+        const outer = document.createElementNS("http://www.w3.org/2000/svg","circle"); outer.setAttribute("cx",0); outer.setAttribute("cy",0); outer.setAttribute("r",10); outer.setAttribute("class","outer"); outer.setAttribute("fill", idx===0?"rgba(181,138,62,.28)":"rgba(78,142,207,.16)"); outer.setAttribute("stroke", idx===0?"#b58a3e":"#4ea97a"); outer.setAttribute("stroke-width","2");
+        const inner = document.createElementNS("http://www.w3.org/2000/svg","circle"); inner.setAttribute("cx",0); inner.setAttribute("cy",0); inner.setAttribute("r",4.2); inner.setAttribute("fill","#ffffff");
+        const label = document.createElementNS("http://www.w3.org/2000/svg","text"); label.textContent=stop.name; label.setAttribute("x",18); label.setAttribute("y",6); label.setAttribute("class","station-label");
+        const tag = document.createElementNS("http://www.w3.org/2000/svg","text"); tag.textContent=stop.short; tag.setAttribute("x",18); tag.setAttribute("y",26); tag.setAttribute("class","station-tag");
+        g.appendChild(pulse); g.appendChild(outer); g.appendChild(inner); g.appendChild(label); g.appendChild(tag);
+        g.addEventListener("click",()=>selectStop(idx,true));
+        return g;
+      }
+
+      function makeCard(stop, idx){
+        const card = document.createElement("div"); card.className="stop-card"; card.dataset.idx=idx;
+        card.innerHTML = `<div class="thumb"></div><div class="name">${stop.name} · ${stop.short}</div><div class="meta">${stop.archName}</div><div class="card-actions"><button class="mini-btn">点击看详情</button></div>`;
+        card.addEventListener("click",()=>selectStop(idx,true));
+        card.querySelector(".mini-btn").addEventListener("click",(e)=>{ e.stopPropagation(); selectStop(idx,true); openModal(); });
+        return card;
+      }
+
+      stops.forEach((s,i)=>{ stationGroup.appendChild(makeStation(s,i)); cardsEl.appendChild(makeCard(s,i)); });
+
+      let currentIdx=0, autoPlay=true, routeProgress=0, visualProgress=0, lastTime=performance.now(), speed=1.0;
+
+      function followBoat(x,y){
+        const maxLeft=Math.max(0,canvasW-mapViewport.clientWidth), maxTop=Math.max(0,canvasH-mapViewport.clientHeight);
+        mapViewport.scrollLeft = clamp(x - mapViewport.clientWidth*0.42, 0, maxLeft);
+        mapViewport.scrollTop = clamp(y - mapViewport.clientHeight*0.40, 0, maxTop);
+      }
+
+      function updateBoat(progress){ const p=getPointAt(progress); boatOverlay.style.transform=`translate3d(${p.x-130}px, ${p.y-110}px, 0) rotate(${p.angle+8}deg)`; followBoat(p.x,p.y); }
+
+      function setActiveClasses(idx){
+        document.querySelectorAll(".station").forEach(g=>g.classList.toggle("active", Number(g.dataset.idx)===idx));
+        document.querySelectorAll(".stop-card").forEach(c=>c.classList.toggle("active", Number(c.dataset.idx)===idx));
+      }
+
+      function fillModal(stop){
+        els.modalTitle.textContent=`${stop.name} · ${stop.short}`;
+        els.modalSub.textContent=`${stop.category} · ${stop.heroType}`;
+        els.modalImg.style.background=stop.hero;
+        els.modalDesc.textContent=stop.desc;
+        els.modalExtra.textContent=stop.extraDesc;
+        els.modalArch.textContent=stop.archName;
+        els.modalHistory.textContent=stop.archTime;
+        els.modalPoem.textContent=stop.poem;
+        els.modalTips.textContent=stop.archTip;
+      }
+
+      function openModal(){ fillModal(stops[currentIdx]); modalMask.style.display="flex"; modalMask.setAttribute("aria-hidden","false"); }
+      function closeModalFn(){ modalMask.style.display="none"; modalMask.setAttribute("aria-hidden","true"); }
+
+      function renderPills(tags){ els.overviewTags.innerHTML=""; tags.forEach(t=>{ const p=document.createElement("span"); p.className="addon-pill"; p.textContent=t; els.overviewTags.appendChild(p); }); }
+
+      function syncPanel(s, idx){
+        currentIdx=idx;
+        els.placeTitle.textContent=`${s.name} · ${s.short}`;
+        els.placeSub.textContent = idx===0 ? "从北端起航，沿运河展开一段纵贯南北的文化旅程。" : (idx===stops.length-1?"旅程已到终点，适合做全线回顾与总结展示。":`距离起点约 ${s.progress}% 的位置。`);
+        els.badge.textContent = idx===stops.length-1?"终点站":(idx===0?"起点站":"当前站点");
+        els.heroImg.style.background=s.hero; els.heroPlace.textContent=`${s.name}段 · ${s.heroPlace}`; els.heroType.textContent=s.heroType;
+        els.detailArch.textContent=s.archName; els.detailHistory.textContent=s.archTime; els.detailStyle.textContent=s.archStyle; els.detailTip.textContent=s.archTip;
+        els.archName.textContent=s.archName; els.archTime.textContent=s.archTime; els.archStyle.textContent=s.archStyle; els.archTip2.textContent=s.archTip;
+        els.extraDesc.textContent=s.extraDesc; els.extraPoem.textContent=s.poem; els.desc.textContent=s.desc;
+        els.quoteLine.firstChild.nodeValue=s.quote; els.quoteSource.textContent=s.quoteSource;
+        els.poemText.textContent=s.poem; els.poemAdvice.textContent=s.poemAdvice;
+        els.overviewRoute.textContent=`${s.name}位于整条线路的 ${s.progress}% 处，当前类别为“${s.category}”。`;
+        els.overviewHint.textContent=s.archTip; els.overviewSummary.textContent=`${s.name}段核心视觉重点：${s.archStyle}。`;
+        renderPills(s.tags);
+        els.extendSpace.textContent=`${s.name}段的空间特征：${s.archStyle}。`; els.extendStory.textContent=s.extraDesc; els.extendVisual.textContent=`关键词：“${s.tags.join("、")}”。`;
+        els.poemImage.textContent=`关键词：${s.tags.join(" / ")}。`; els.poemCaption.textContent=`${s.quote}｜${s.quoteSource}`; els.poemRhythm.textContent=s.poemAdvice; els.poemMood.textContent=`氛围重点：“${s.category}”。`;
+        
+        statBuilding.textContent = s.buildingCount || '—';
+        statBridge.textContent = s.bridgeCount || '—';
+        statPeriod.textContent = s.period || '—';
+        statProtection.textContent = s.protection || '—';
+        buildingListDetail.textContent = s.buildingList || '暂无详细列表';
+        spaceExtraEl.textContent = s.spaceExtra || '—';
+        if(extendDataEl) extendDataEl.textContent = s.extendData || '更多数据可在此补充。';
+        
+        longDescText.textContent = s.longDesc || '';
+        historyTextEl.textContent = s.historyText || '';
+        archFeatureText.textContent = s.archFeature || '';
+        extendLongText.textContent = s.extendLong || '';
+        techFeatureText.textContent = s.techFeature || '';
+        protectionText.textContent = s.protectionStatus || '';
+        figuresText.textContent = s.relatedFigures || '';
+        cultureValueText.textContent = s.cultureValue || '';
+
+        fillModal(s); setActiveClasses(idx);
+      }
+
+      function selectStop(idx, fromClick=false){
+        const s=stops[idx]; routeProgress=nodeProgress[idx]; syncPanel(s,idx);
+        if(fromClick){ autoPlay=false; playBtn.textContent="继续自动航行"; } renderCards();
+      }
+
+      function renderCards(){
+        const kw=searchInput.value.trim().toLowerCase(), cat=categorySelect.value, sort=sortSelect.value;
+        let items=stops.map((s,i)=>({...s,i}));
+        if(kw) items=items.filter(s=> s.name.toLowerCase().includes(kw)||s.short.toLowerCase().includes(kw)||s.archName.toLowerCase().includes(kw)||s.tags.join(" ").toLowerCase().includes(kw));
+        if(cat!=="all") items=items.filter(s=>s.category===cat);
+        if(sort==="name") items.sort((a,b)=>a.name.localeCompare(b.name,"zh-Hans-CN")); else items.sort((a,b)=>a.i-b.i);
+        cardsEl.innerHTML=""; items.forEach(it=>{ const c=makeCard(it,it.i); if(it.i===currentIdx) c.classList.add("active"); cardsEl.appendChild(c); });
+        document.querySelectorAll(".station").forEach(g=>{ const idx=Number(g.dataset.idx), s=stops[idx]; const match=(!kw|| s.name.toLowerCase().includes(kw)||s.short.toLowerCase().includes(kw)||s.archName.toLowerCase().includes(kw)||s.tags.join(" ").toLowerCase().includes(kw)) && (cat==="all"||s.category===cat); g.style.opacity=match?"1":".28"; g.style.pointerEvents=match?"auto":"none"; });
+      }
+
+      function randomJump(){ const idx=Math.floor(Math.random()*stops.length); routeProgress=nodeProgress[idx]; visualProgress=routeProgress; syncPanel(stops[idx],idx); updateBoat(visualProgress); autoPlay=false; playBtn.textContent="继续自动航行"; renderCards(); }
+
+      playBtn.addEventListener("click",()=>{ autoPlay=!autoPlay; playBtn.textContent=autoPlay?"暂停自动航行":"继续自动航行"; });
+      resetBtn.addEventListener("click",()=>{ autoPlay=true; currentIdx=0; routeProgress=0; visualProgress=0; mapViewport.scrollLeft=0; mapViewport.scrollTop=0; syncPanel(stops[0],0); updateBoat(0); playBtn.textContent="暂停自动航行"; renderCards(); });
+      detailBtn.addEventListener("click",openModal); randomBtn.addEventListener("click",randomJump);
+      closeModal.addEventListener("click",closeModalFn); modalMask.addEventListener("click",e=>{ if(e.target===modalMask) closeModalFn(); });
+      window.addEventListener("keydown",e=>{ if(e.key==="Escape") closeModalFn(); });
+      searchInput.addEventListener("input",renderCards); sortSelect.addEventListener("change",renderCards); categorySelect.addEventListener("change",renderCards);
+      speedSlider.addEventListener("input",()=>{ speed=Number(speedSlider.value); speedLabel.textContent=`${speed.toFixed(1)}x`; });
+      document.querySelectorAll(".tab").forEach(btn=>{ btn.addEventListener("click",()=>{ document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active")); document.querySelectorAll(".section").forEach(s=>s.classList.remove("active")); btn.classList.add("active"); document.getElementById(btn.dataset.tab).classList.add("active"); }); });
+
+      function nearestNodeIndex(progress){ let idx=0,best=Infinity; for(let i=0;i<nodeProgress.length;i++){ const d=Math.abs(progress-nodeProgress[i]); if(d<best){best=d; idx=i;} } return idx; }
+
+      function animate(now){
+        const dt=Math.min(0.035,(now-lastTime)/1000); lastTime=now;
+        if(autoPlay){ routeProgress+=dt*0.055*speed; if(routeProgress>1) routeProgress=1; }
+        visualProgress+=(routeProgress-visualProgress)*(autoPlay?0.09:0.18);
+        if(Math.abs(routeProgress-visualProgress)<0.0008) visualProgress=routeProgress;
+        const targetIdx=nearestNodeIndex(routeProgress); if(targetIdx!==currentIdx){ syncPanel(stops[targetIdx],targetIdx); renderCards(); }
+        updateBoat(visualProgress);
+        boatOverlay.classList.toggle("boat-docked", Math.abs(routeProgress-visualProgress)<0.002 && !autoPlay);
+        if(autoPlay && routeProgress>=1){ autoPlay=false; playBtn.textContent="继续自动航行"; }
+        requestAnimationFrame(animate);
+      }
+
+      mapSvg.addEventListener("click",(e)=>{
+        const pt=mapSvg.createSVGPoint(); pt.x=e.clientX; pt.y=e.clientY; const cursor=pt.matrixTransform(mapSvg.getScreenCTM().inverse());
+        let nearest=0,best=Infinity;
+        points.forEach((s,i)=>{ const d=Math.hypot(cursor.x-s.mx, cursor.y-s.my); if(d<best){best=d; nearest=i;} });
+        if(best<100) selectStop(nearest,true);
+      });
+
+      window.addEventListener("resize",()=>{ const p=getPointAt(visualProgress); followBoat(p.x,p.y); });
+      selectStop(0); renderCards(); updateBoat(0); requestAnimationFrame(animate);
+    })();
+  </script>
+</body>
+</html>
